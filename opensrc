@@ -3,9 +3,30 @@ local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
+-- ฟังก์ชันแปลงเวลาให้เป็นวินาที
+local function parseTime(input)
+    if type(input) == "number" then
+        return math.floor(input)
+    elseif type(input) == "string" then
+        -- ลองแปลง hex
+        if input:match("^0x[0-9a-fA-F]+$") then
+            return tonumber(input, 16) or 180
+        end
+        -- ลองประเมินนิพจน์
+        local func, err = loadstring("return " .. input)
+        if func then
+            local success, result = pcall(func)
+            if success and type(result) == "number" then
+                return math.floor(result)
+            end
+        end
+    end
+    return 180 -- ค่าเริ่มต้นถ้าล้มเหลว
+end
+
 -- Configuration
 local PLACE_ID = 103754275310547 -- PlaceId ของ Hunty Zombie
-local WAIT_TIME = _G.time or 180   -- ใช้ _G.time ถ้ามี มิฉะนั้น 180 วินาที
+local WAIT_TIME = parseTime(_G.time or 180) -- ใช้ _G.time หรือ 180 วินาที
 local RETRY_DELAY = 3             -- เวลาก่อน retry (วินาที)
 
 -- สร้าง GUI หลัก
@@ -82,7 +103,7 @@ local timerLabel = Instance.new("TextLabel")
 timerLabel.Size = UDim2.new(1, -20, 0, 35)
 timerLabel.Position = UDim2.new(0, 10, 0, 60)
 timerLabel.BackgroundTransparency = 1
-timerLabel.Text = formatTime(WAIT_TIME) -- อัปเดตเริ่มต้นด้วยเวลาที่ถูกต้อง
+timerLabel.Text = formatTime(WAIT_TIME)
 timerLabel.Font = Enum.Font.GothamBlack
 timerLabel.TextSize = 28
 timerLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -103,7 +124,7 @@ progressBgCorner.Parent = progressBg
 
 -- Progress bar fill
 local progressFill = Instance.new("Frame")
-progressFill.Size = UDim2.new(0, 0, 1, 0) -- เริ่มต้นที่ 0
+progressFill.Size = UDim2.new(0, 0, 1, 0)
 progressFill.Position = UDim2.new(0, 0, 0, 0)
 progressFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
 progressFill.BorderSizePixel = 0
@@ -227,9 +248,9 @@ task.spawn(function()
     while gui.Parent do
         local remaining = WAIT_TIME
         setStatus("Next rejoin in:", Color3.fromRGB(200, 200, 200))
-        timerLabel.Text = formatTime(remaining) -- อัปเดต timer เริ่มต้น
-        updateTimerColor(remaining, WAIT_TIME) -- อัปเดตสีเริ่มต้น
-        updateProgress(0, WAIT_TIME) -- รีเซ็ต progress bar
+        timerLabel.Text = formatTime(remaining)
+        updateTimerColor(remaining, WAIT_TIME)
+        updateProgress(0, WAIT_TIME)
         
         while remaining > 0 and gui.Parent do
             timerLabel.Text = formatTime(remaining)
