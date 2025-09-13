@@ -269,54 +269,82 @@ end
 
 -- ===== MAIN COUNTDOWN LOOP =====
 print("[Rejoin Script] Starting countdown...")
+
+-- ตัวแปรป้องกันการ reset ที่ไม่จำเป็น
+local isCountingDown = false
+local currentCycleStartTime = 0
+
 task.spawn(function()
     while gui.Parent do
         -- อ่านค่า config ใหม่ทุกรอบ
         local currentConfig = getConfig()
+        
+        -- ตรวจสอบความถูกต้องของ config
+        if not currentConfig.waitTime or currentConfig.waitTime <= 0 then
+            warn("[Rejoin Script] Invalid config! waitTime =", currentConfig.waitTime)
+            currentConfig.waitTime = 120
+        end
+        
         local remaining = currentConfig.waitTime
-        local lastConfigTime = currentConfig.waitTime
+        local totalTime = currentConfig.waitTime
+        isCountingDown = true
+        currentCycleStartTime = tick()
         
         setStatus("Next rejoin in:")
-        print("[Rejoin Script] Starting new cycle with", remaining, "seconds")
+        print("[Rejoin Script] Starting new cycle with", remaining, "seconds (config:", currentConfig.waitTime, ")")
         
-        while remaining > 0 and gui.Parent do
+        while remaining > 0 and gui.Parent and isCountingDown do
             -- ตรวจสอบว่า config เปลี่ยนหรือไม่
-            currentConfig = getConfig()
+            local newConfig = getConfig()
             
-            -- ถ้า config เปลี่ยน ให้ปรับ timer
-            if currentConfig.waitTime ~= lastConfigTime then
-                print("[Rejoin Script] Config changed! New time:", currentConfig.waitTime)
-                lastConfigTime = currentConfig.waitTime
-                -- คำนวณเวลาใหม่ตามอัตราส่วน
-                local progress = (lastConfigTime - remaining) / lastConfigTime
-                remaining = math.max(1, currentConfig.waitTime - math.floor(currentConfig.waitTime * progress))
+            -- ป้องกัน config ที่ผิดปกติ
+            if not newConfig.waitTime or newConfig.waitTime <= 0 then
+                newConfig.waitTime = currentConfig.waitTime -- ใช้ค่าเดิม
+            end
+            
+            -- ถ้า config เปลี่ยนแล้วแตกต่างกันมาก ให้ restart cycle
+            if math.abs(newConfig.waitTime - totalTime) > 5 then
+                print("[Rejoin Script] Config changed significantly! Old:", totalTime, "New:", newConfig.waitTime)
+                totalTime = newConfig.waitTime
+                -- คำนวณเวลาใหม่ตามสัดส่วน
+                local elapsed = tick() - currentCycleStartTime
+                remaining = math.max(1, totalTime - elapsed)
                 print("[Rejoin Script] Adjusted remaining time:", remaining)
             end
             
-            timerLabel.Text = formatTime(remaining)
-            updateProgress(currentConfig.waitTime - remaining, currentConfig.waitTime)
-            updateTimerColor(remaining, currentConfig.waitTime)
+            -- อัปเดต UI
+            timerLabel.Text = formatTime(math.max(0, remaining))
+            updateProgress(totalTime - remaining, totalTime)
+            updateTimerColor(remaining, totalTime)
             
-            print("[Rejoin Script] Time remaining:", remaining, "| Config time:", currentConfig.waitTime)
+            -- Debug ทุก 10 วินาที
+            if remaining % 10 == 0 or remaining <= 5 then
+                print("[Rejoin Script] Time remaining:", remaining, "| Total:", totalTime)
+            end
+            
             task.wait(1)
             remaining = remaining - 1
         end
         
-        if gui.Parent then
-            print("[Rejoin Script] Attempting teleport...")
+        if gui.Parent and isCountingDown then
+            print("[Rejoin Script] Countdown finished, attempting teleport...")
+            isCountingDown = false
+            
             local success = attemptTeleport()
             if not success then
                 -- Reset progress bar และเริ่มใหม่
-                currentConfig = getConfig() -- อ่าน config ใหม่อีกครั้ง
-                updateProgress(0, currentConfig.waitTime)
-                setStatus("Retrying in " .. currentConfig.retryDelay .. " seconds...", Color3.fromRGB(255, 200, 100))
-                print("[Rejoin Script] Teleport failed, will retry...")
+                local retryConfig = getConfig()
+                updateProgress(0, retryConfig.waitTime)
+                setStatus("Retrying in " .. retryConfig.retryDelay .. " seconds...", Color3.fromRGB(255, 200, 100))
+                print("[Rejoin Script] Teleport failed, will retry after", retryConfig.retryDelay, "seconds...")
             else
                 print("[Rejoin Script] Teleport successful!")
                 break -- ออกจาก loop หาก teleport สำเร็จ
             end
         end
     end
+    
+    print("[Rejoin Script] Main loop ended")
 end)
 
 -- แจ้งว่า script โหลดเสร็จแล้ว
