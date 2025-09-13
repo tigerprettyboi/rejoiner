@@ -268,27 +268,33 @@ if Config.showCloseButton and closeButton then
 end
 
 -- ===== MAIN COUNTDOWN LOOP =====
+print("[Rejoin Script] Starting countdown...")
 task.spawn(function()
     while gui.Parent do
         local remaining = Config.waitTime
         setStatus("Next rejoin in:")
+        print("[Rejoin Script] Starting new cycle with", remaining, "seconds")
         
         while remaining > 0 and gui.Parent do
             timerLabel.Text = formatTime(remaining)
             updateProgress(Config.waitTime - remaining, Config.waitTime)
             updateTimerColor(remaining, Config.waitTime)
             
+            print("[Rejoin Script] Time remaining:", remaining) -- Debug
             task.wait(1)
             remaining = remaining - 1
         end
         
         if gui.Parent then
+            print("[Rejoin Script] Attempting teleport...")
             local success = attemptTeleport()
             if not success then
                 -- Reset progress bar และเริ่มใหม่
                 updateProgress(0, Config.waitTime)
                 setStatus("Retrying in " .. Config.retryDelay .. " seconds...", Color3.fromRGB(255, 200, 100))
+                print("[Rejoin Script] Teleport failed, will retry...")
             else
+                print("[Rejoin Script] Teleport successful!")
                 break -- ออกจาก loop หาก teleport สำเร็จ
             end
         end
