@@ -1,200 +1,309 @@
---// ========================== CONFIG ==========================
-local REJOIN_INTERVAL_SECONDS = 130         -- เวลานับถอยหลังก่อนรีจอย (หน่วย: วินาที)
-local PLACE_ID_TO_REJOIN = 103754275310547  -- PlaceId ที่จะวาร์ปไป
-local ERROR_RETRY_SLEEP_TIME = 3             -- หน่วงเวลาก่อนรีลองใหม่เมื่อ Teleport fail
---// ============================================================
+-- Rejoin Script with External Configuration Support
+-- Usage: 
+-- local TIME_LOOP_COUNTER_MAX = 130
+-- loadstring(game:HttpGet("https://raw.githubusercontent.com/tigerprettyboi/rejoiner/refs/heads/main/opensrc"))()
 
-
--- โหลด Services
-local PlayersService = game:GetService("Players")
+local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
 
-local LocalPlayer = PlayersService.LocalPlayer
-
--- สร้าง GUI หลัก
-local Screen = Instance.new("ScreenGui")
-Screen.Name = "RejoinUI_" .. tostring(math.random(10000,99999))
-Screen.ResetOnSpawn = false
-Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Screen.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 0x118, 0, 0x78)
-MainFrame.Position = UDim2.new(1, -0x12C, 0, 0x14)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = Screen
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 12)
-Corner.Parent = MainFrame
-
-local Gradient = Instance.new("UIGradient")
-Gradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 45)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 25))
+-- ===== CONFIG SYSTEM =====
+-- รับค่า config จากตัวแปร global หรือใช้ค่า default
+local Config = {
+    -- เวลารอก่อน rejoin (วินาที)
+    waitTime = getgenv().TIME_LOOP_COUNTER_MAX or _G.TIME_LOOP_COUNTER_MAX or 120,
+    
+    -- Place ID (ถ้าไม่กำหนดจะใช้ place ปัจจุบัน)
+    placeId = getgenv().PLACE_ID or _G.PLACE_ID or game.PlaceId,
+    
+    -- เวลาก่อน retry เมื่อ teleport ล้มเหลว
+    retryDelay = getgenv().RETRY_DELAY or _G.RETRY_DELAY or 3,
+    
+    -- UI Settings
+    guiName = getgenv().GUI_NAME or _G.GUI_NAME or "RejoinUI",
+    showCloseButton = getgenv().SHOW_CLOSE_BUTTON or _G.SHOW_CLOSE_BUTTON or true,
+    showProgressBar = getgenv().SHOW_PROGRESS_BAR or _G.SHOW_PROGRESS_BAR or true,
+    
+    -- Colors
+    primaryColor = getgenv().PRIMARY_COLOR or _G.PRIMARY_COLOR or Color3.fromRGB(100, 200, 255),
+    backgroundColor = getgenv().BACKGROUND_COLOR or _G.BACKGROUND_COLOR or Color3.fromRGB(25, 25, 30),
+    textColor = getgenv().TEXT_COLOR or _G.TEXT_COLOR or Color3.fromRGB(255, 255, 255)
 }
-Gradient.Rotation = 45
-Gradient.Parent = MainFrame
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(60, 60, 70)
-Stroke.Thickness = 1
-Stroke.Transparency = 0.5
-Stroke.Parent = MainFrame
+-- แสดง config ที่ใช้งาน
+print("=== Rejoin Script Config ===")
+print("Wait Time:", Config.waitTime, "seconds")
+print("Place ID:", Config.placeId)
+print("Retry Delay:", Config.retryDelay, "seconds")
+print("GUI Name:", Config.guiName)
+print("===========================")
 
-local Icon = Instance.new("ImageLabel")
-Icon.Size = UDim2.new(0, 24, 0, 24)
-Icon.Position = UDim2.new(0, 15, 0, 15)
-Icon.BackgroundTransparency = 1
-Icon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-Icon.ImageColor3 = Color3.fromRGB(100, 200, 255)
-Icon.Parent = MainFrame
+-- ===== GUI CREATION =====
+local gui = Instance.new("ScreenGui")
+gui.Name = Config.guiName .. "_" .. tostring(math.random(1000, 9999))
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 0, 25)
-Title.Position = UDim2.new(0, 45, 0, 15)
-Title.BackgroundTransparency = 1
-Title.Text = "Auto Rejoin"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = MainFrame
+-- Main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 280, 0, 120)
+mainFrame.Position = UDim2.new(1, -300, 0, 20)
+mainFrame.BackgroundColor3 = Config.backgroundColor
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = gui
 
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, -20, 0, 18)
-Status.Position = UDim2.new(0, 10, 0, 42)
-Status.BackgroundTransparency = 1
-Status.Text = "Next rejoin in:"
-Status.Font = Enum.Font.Gotham
-Status.TextSize = 12
-Status.TextColor3 = Color3.fromRGB(200, 200, 200)
-Status.TextXAlignment = Enum.TextXAlignment.Center
-Status.Parent = MainFrame
+-- Corner radius
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = mainFrame
 
-local TimerLabel = Instance.new("TextLabel")
-TimerLabel.Size = UDim2.new(1, -20, 0, 35)
-TimerLabel.Position = UDim2.new(0, 10, 0, 60)
-TimerLabel.BackgroundTransparency = 1
-TimerLabel.Text = "02:00"
-TimerLabel.Font = Enum.Font.GothamBlack
-TimerLabel.TextSize = 28
-TimerLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
-TimerLabel.TextXAlignment = Enum.TextXAlignment.Center
-TimerLabel.Parent = MainFrame
+-- Gradient background
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Config.backgroundColor:lerp(Color3.new(1,1,1), 0.1)),
+    ColorSequenceKeypoint.new(1, Config.backgroundColor:lerp(Color3.new(0,0,0), 0.1))
+}
+gradient.Rotation = 45
+gradient.Parent = mainFrame
 
-local ProgressBG = Instance.new("Frame")
-ProgressBG.Size = UDim2.new(1, -20, 0, 3)
-ProgressBG.Position = UDim2.new(0, 10, 1, -15)
-ProgressBG.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-ProgressBG.BorderSizePixel = 0
-ProgressBG.Parent = MainFrame
+-- Border stroke
+local stroke = Instance.new("UIStroke")
+stroke.Color = Config.primaryColor
+stroke.Thickness = 1
+stroke.Transparency = 0.7
+stroke.Parent = mainFrame
 
-local PBGcorner = Instance.new("UICorner")
-PBGcorner.CornerRadius = UDim.new(0, 2)
-PBGcorner.Parent = ProgressBG
+-- Icon
+local icon = Instance.new("ImageLabel")
+icon.Size = UDim2.new(0, 24, 0, 24)
+icon.Position = UDim2.new(0, 15, 0, 15)
+icon.BackgroundTransparency = 1
+icon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+icon.ImageColor3 = Config.primaryColor
+icon.Parent = mainFrame
 
-local ProgressFill = Instance.new("Frame")
-ProgressFill.Size = UDim2.new(1, 0, 1, 0)
-ProgressFill.Position = UDim2.new(0, 0, 0, 0)
-ProgressFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-ProgressFill.BorderSizePixel = 0
-ProgressFill.Parent = ProgressBG
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -50, 0, 25)
+title.Position = UDim2.new(0, 45, 0, 15)
+title.BackgroundTransparency = 1
+title.Text = "Auto Rejoin"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Config.textColor
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = mainFrame
 
-local PFillCorner = Instance.new("UICorner")
-PFillCorner.CornerRadius = UDim.new(0, 2)
-PFillCorner.Parent = ProgressFill
+-- Status label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 18)
+statusLabel.Position = UDim2.new(0, 10, 0, 42)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Next rejoin in:"
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 12
+statusLabel.TextColor3 = Config.textColor:lerp(Color3.new(0.5,0.5,0.5), 0.3)
+statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+statusLabel.Parent = mainFrame
 
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 20, 0, 20)
-CloseButton.Position = UDim2.new(1, -25, 0, 5)
-CloseButton.BackgroundTransparency = 1
-CloseButton.Text = "×"
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 16
-CloseButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-CloseButton.Parent = MainFrame
+-- Timer label
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Size = UDim2.new(1, -20, 0, 35)
+timerLabel.Position = UDim2.new(0, 10, 0, 60)
+timerLabel.BackgroundTransparency = 1
+timerLabel.Text = "00:00"
+timerLabel.Font = Enum.Font.GothamBlack
+timerLabel.TextSize = 28
+timerLabel.TextColor3 = Config.primaryColor
+timerLabel.TextXAlignment = Enum.TextXAlignment.Center
+timerLabel.Parent = mainFrame
 
+-- Progress bar (แสดงเฉพาะเมื่อ config อนุญาต)
+local progressBg, progressFill
+if Config.showProgressBar then
+    progressBg = Instance.new("Frame")
+    progressBg.Size = UDim2.new(1, -20, 0, 3)
+    progressBg.Position = UDim2.new(0, 10, 1, -15)
+    progressBg.BackgroundColor3 = Config.backgroundColor:lerp(Color3.new(1,1,1), 0.1)
+    progressBg.BorderSizePixel = 0
+    progressBg.Parent = mainFrame
 
--- ฟังก์ชันเสริม
-local function Tween(obj, info, props)
-    return TweenService:Create(obj, info, props)
+    local progressBgCorner = Instance.new("UICorner")
+    progressBgCorner.CornerRadius = UDim.new(0, 2)
+    progressBgCorner.Parent = progressBg
+
+    progressFill = Instance.new("Frame")
+    progressFill.Size = UDim2.new(1, 0, 1, 0)
+    progressFill.Position = UDim2.new(0, 0, 0, 0)
+    progressFill.BackgroundColor3 = Config.primaryColor
+    progressFill.BorderSizePixel = 0
+    progressFill.Parent = progressBg
+
+    local progressFillCorner = Instance.new("UICorner")
+    progressFillCorner.CornerRadius = UDim.new(0, 2)
+    progressFillCorner.Parent = progressFill
 end
 
-local function formatTime(sec)
-    local m = math.floor(sec / 60)
-    local s = sec % 60
-    return string.format("%02d:%02d", m, s)
+-- Close button (แสดงเฉพาะเมื่อ config อนุญาต)
+local closeButton
+if Config.showCloseButton then
+    closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 20, 0, 20)
+    closeButton.Position = UDim2.new(1, -25, 0, 5)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Text = "×"
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.TextColor3 = Config.textColor:lerp(Color3.new(0.5,0.5,0.5), 0.3)
+    closeButton.Parent = mainFrame
+end
+
+-- ===== ANIMATION FUNCTIONS =====
+local function createTween(object, info, properties)
+    return TweenService:Create(object, info, properties)
+end
+
+-- Slide in animation
+local slideIn = createTween(mainFrame, 
+    TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+    {Position = UDim2.new(1, -300, 0, 20)})
+slideIn:Play()
+
+-- ===== UTILITY FUNCTIONS =====
+local function formatTime(seconds)
+    local minutes = math.floor(seconds / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d", minutes, secs)
 end
 
 local function updateProgress(current, total)
-    Tween(ProgressFill, TweenInfo.new(0.2, Enum.EasingStyle.Quad),
-        {Size = UDim2.new(current/total, 0, 1, 0)}):Play()
+    if Config.showProgressBar and progressFill then
+        local progress = current / total
+        createTween(progressFill, TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
+            {Size = UDim2.new(progress, 0, 1, 0)}):Play()
+    end
 end
 
-local function updateColor(remaining, total)
-    local ratio = remaining/total
-    local col = Color3.fromRGB(100,200,255)
-    if ratio <= 0.25 then col = Color3.fromRGB(255,100,100)
-    elseif ratio <= 0.5 then col = Color3.fromRGB(255,200,100) end
-    Tween(TimerLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {TextColor3 = col}):Play()
+local function updateTimerColor(remaining, total)
+    local ratio = remaining / total
+    local color
+    
+    if ratio > 0.5 then
+        color = Config.primaryColor
+    elseif ratio > 0.25 then
+        color = Config.primaryColor:lerp(Color3.fromRGB(255, 200, 100), 0.7)
+    else
+        color = Color3.fromRGB(255, 100, 100)
+    end
+    
+    createTween(timerLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad), 
+        {TextColor3 = color}):Play()
 end
 
-local function setStatus(txt, col)
-    Status.Text = txt
-    Status.TextColor3 = col or Color3.fromRGB(200, 200, 200)
+local function setStatus(text, color)
+    statusLabel.Text = text
+    if color then
+        statusLabel.TextColor3 = color
+    end
 end
 
 local function attemptTeleport()
     setStatus("Teleporting...", Color3.fromRGB(100, 255, 100))
-    TimerLabel.Text = "00:00"
-
-    local ok, err = pcall(function()
-        TeleportService:Teleport(PLACE_ID_TO_REJOIN, LocalPlayer)
+    timerLabel.Text = "00:00"
+    
+    -- Loading animation
+    task.spawn(function()
+        for i = 1, 3 do
+            if gui.Parent then
+                timerLabel.Text = "Teleporting" .. string.rep(".", i)
+                task.wait(0.3)
+            end
+        end
     end)
-    if not ok then
-        warn("Teleport failed:", err)
+    
+    local success, error = pcall(function()
+        TeleportService:Teleport(Config.placeId, player)
+    end)
+    
+    if not success then
+        warn("[Rejoin Script] Teleport failed:", error)
         setStatus("Teleport failed! Retrying...", Color3.fromRGB(255, 100, 100))
-        TimerLabel.Text = "ERROR"
-        TimerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-        task.wait(ERROR_RETRY_SLEEP_TIME)
+        timerLabel.Text = "ERROR"
+        timerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        
+        -- Shake animation on error
+        local shake1 = createTween(mainFrame, TweenInfo.new(0.1, Enum.EasingStyle.Linear), 
+            {Position = UDim2.new(1, -305, 0, 20)})
+        shake1:Play()
+        shake1.Completed:Connect(function()
+            local shake2 = createTween(mainFrame, TweenInfo.new(0.1, Enum.EasingStyle.Linear), 
+                {Position = UDim2.new(1, -295, 0, 20)})
+            shake2:Play()
+            shake2.Completed:Connect(function()
+                createTween(mainFrame, TweenInfo.new(0.1, Enum.EasingStyle.Linear), 
+                    {Position = UDim2.new(1, -300, 0, 20)}):Play()
+            end)
+        end)
+        
+        task.wait(Config.retryDelay)
         return false
     end
     return true
 end
 
+-- ===== EVENT HANDLERS =====
+if Config.showCloseButton and closeButton then
+    closeButton.Activated:Connect(function()
+        local fadeOut = createTween(mainFrame, 
+            TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
+            {Position = UDim2.new(1, -100, 0, 20), BackgroundTransparency = 1})
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            gui:Destroy()
+        end)
+    end)
+end
 
--- ปุ่มปิด GUI
-CloseButton.Activated:Connect(function()
-    Tween(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In),
-        {Position = UDim2.new(1, -100, 0, 20), BackgroundTransparency = 1}):Play()
-    task.wait(0.3)
-    Screen:Destroy()
+-- ===== MAIN COUNTDOWN LOOP =====
+task.spawn(function()
+    while gui.Parent do
+        local remaining = Config.waitTime
+        setStatus("Next rejoin in:")
+        
+        while remaining > 0 and gui.Parent do
+            timerLabel.Text = formatTime(remaining)
+            updateProgress(Config.waitTime - remaining, Config.waitTime)
+            updateTimerColor(remaining, Config.waitTime)
+            
+            task.wait(1)
+            remaining = remaining - 1
+        end
+        
+        if gui.Parent then
+            local success = attemptTeleport()
+            if not success then
+                -- Reset progress bar และเริ่มใหม่
+                updateProgress(0, Config.waitTime)
+                setStatus("Retrying in " .. Config.retryDelay .. " seconds...", Color3.fromRGB(255, 200, 100))
+            else
+                break -- ออกจาก loop หาก teleport สำเร็จ
+            end
+        end
+    end
 end)
 
+-- แจ้งว่า script โหลดเสร็จแล้ว
+print("[Rejoin Script] Successfully loaded with " .. Config.waitTime .. " seconds timer!")
 
--- ลูปนับเวลา + รีจอย
-task.spawn(function()
-    while Screen.Parent do
-        local t = REJOIN_INTERVAL_SECONDS
-        setStatus("Next rejoin in:")
-
-        while t > 0 and Screen.Parent do
-            TimerLabel.Text = formatTime(t)
-            updateProgress(REJOIN_INTERVAL_SECONDS - t, REJOIN_INTERVAL_SECONDS)
-            updateColor(t, REJOIN_INTERVAL_SECONDS)
-            task.wait(1)
-            t -= 1
-        end
-
-        if Screen.Parent then
-            if not attemptTeleport() then
-                updateProgress(0, REJOIN_INTERVAL_SECONDS)
-            else
-                break
-            end
+-- ===== CLEANUP =====
+-- ทำลาย GUI เมื่อ player ออกจากเกม
+player.AncestryChanged:Connect(function()
+    if not player.Parent then
+        if gui and gui.Parent then
+            gui:Destroy()
         end
     end
 end)
