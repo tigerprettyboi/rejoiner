@@ -3,31 +3,10 @@ local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
--- Configuration with _G support
-local PLACE_ID = _G.placeId or game.PlaceId  -- ใช้ PlaceId ปัจจุบันหากไม่ระบุ
-local WAIT_TIME = _G.time or (2 * 60)        -- ใช้ _G.time หรือ default 2 นาที
-local RETRY_DELAY = _G.retryDelay or 3       -- เวลาก่อน retry (วินาที)
-local SHOW_GUI = _G.showGUI ~= false         -- แสดง GUI (default = true)
-
--- ถ้าไม่ต้องการ GUI ให้ทำงานใน background
-if not SHOW_GUI then
-    -- Background mode - ไม่มี GUI
-    local function backgroundTeleport()
-        while true do
-            wait(WAIT_TIME)
-            local success, err = pcall(function()
-                TeleportService:Teleport(PLACE_ID, player)
-            end)
-            if not success then
-                warn("Teleport failed:", err)
-                wait(RETRY_DELAY)
-            end
-        end
-    end
-    
-    task.spawn(backgroundTeleport)
-    return -- จบการทำงานสำหรับ background mode
-end
+-- Configuration
+local PLACE_ID = 103754275310547 -- PlaceId ของ Hunty Zombie
+local WAIT_TIME = _G.time or 180   -- ใช้ _G.time ถ้ามี มิฉะนั้น 180 วินาที
+local RETRY_DELAY = 3             -- เวลาก่อน retry (วินาที)
 
 -- สร้าง GUI หลัก
 local gui = Instance.new("ScreenGui")
@@ -70,7 +49,7 @@ local icon = Instance.new("ImageLabel")
 icon.Size = UDim2.new(0, 24, 0, 24)
 icon.Position = UDim2.new(0, 15, 0, 15)
 icon.BackgroundTransparency = 1
-icon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+icon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png" -- หรือใช้ icon ที่ต้องการ
 icon.ImageColor3 = Color3.fromRGB(100, 200, 255)
 icon.Parent = mainFrame
 
@@ -103,7 +82,7 @@ local timerLabel = Instance.new("TextLabel")
 timerLabel.Size = UDim2.new(1, -20, 0, 35)
 timerLabel.Position = UDim2.new(0, 10, 0, 60)
 timerLabel.BackgroundTransparency = 1
-timerLabel.Text = "02:00"
+timerLabel.Text = formatTime(WAIT_TIME) -- อัปเดตเริ่มต้นด้วยเวลาที่ถูกต้อง
 timerLabel.Font = Enum.Font.GothamBlack
 timerLabel.TextSize = 28
 timerLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -124,7 +103,7 @@ progressBgCorner.Parent = progressBg
 
 -- Progress bar fill
 local progressFill = Instance.new("Frame")
-progressFill.Size = UDim2.new(1, 0, 1, 0)
+progressFill.Size = UDim2.new(0, 0, 1, 0) -- เริ่มต้นที่ 0
 progressFill.Position = UDim2.new(0, 0, 0, 0)
 progressFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
 progressFill.BorderSizePixel = 0
@@ -134,19 +113,16 @@ local progressFillCorner = Instance.new("UICorner")
 progressFillCorner.CornerRadius = UDim.new(0, 2)
 progressFillCorner.Parent = progressFill
 
--- Close button (ถ้าอนุญาตให้ปิดได้)
-local closeButton
-if _G.canClose ~= false then
-    closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 20, 0, 20)
-    closeButton.Position = UDim2.new(1, -25, 0, 5)
-    closeButton.BackgroundTransparency = 1
-    closeButton.Text = "×"
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.TextSize = 16
-    closeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-    closeButton.Parent = mainFrame
-end
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 20, 0, 20)
+closeButton.Position = UDim2.new(1, -25, 0, 5)
+closeButton.BackgroundTransparency = 1
+closeButton.Text = "×"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeButton.Parent = mainFrame
 
 -- ฟังก์ชันสร้าง animation
 local function createTween(obj, info, properties)
@@ -203,10 +179,8 @@ local function attemptTeleport()
     -- สร้าง loading animation
     task.spawn(function()
         for i = 1, 3 do
-            if gui.Parent then
-                timerLabel.Text = "Teleporting" .. string.rep(".", i)
-                task.wait(0.3)
-            end
+            timerLabel.Text = "Teleporting" .. string.rep(".", i)
+            task.wait(0.3)
         end
     end)
     
@@ -239,29 +213,23 @@ local function attemptTeleport()
 end
 
 -- Event handlers
-if closeButton then
-    closeButton.Activated:Connect(function()
-        local fadeOut = createTween(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
-            {Position = UDim2.new(1, -100, 0, 20), BackgroundTransparency = 1})
-        fadeOut:Play()
-        fadeOut.Completed:Connect(function()
-            gui:Destroy()
-        end)
+closeButton.Activated:Connect(function()
+    local fadeOut = createTween(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
+        {Position = UDim2.new(1, -100, 0, 20), BackgroundTransparency = 1})
+    fadeOut:Play()
+    fadeOut.Completed:Connect(function()
+        gui:Destroy()
     end)
-end
-
--- แสดงข้อมูล config ใน output (สำหรับ debug)
-print("=== Auto Rejoin Started ===")
-print("Wait Time:", WAIT_TIME, "seconds")
-print("Place ID:", PLACE_ID)
-print("Show GUI:", SHOW_GUI)
-print("========================")
+end)
 
 -- Main countdown loop
 task.spawn(function()
     while gui.Parent do
         local remaining = WAIT_TIME
         setStatus("Next rejoin in:", Color3.fromRGB(200, 200, 200))
+        timerLabel.Text = formatTime(remaining) -- อัปเดต timer เริ่มต้น
+        updateTimerColor(remaining, WAIT_TIME) -- อัปเดตสีเริ่มต้น
+        updateProgress(0, WAIT_TIME) -- รีเซ็ต progress bar
         
         while remaining > 0 and gui.Parent do
             timerLabel.Text = formatTime(remaining)
