@@ -1,230 +1,197 @@
-local zzXx_9876543210_xXzz = game:GetService("Players")
-local qWeRtYuIoP_0987654321 = game:GetService("TeleportService")
-local AaAaAaAa_1122334455 = game:GetService("TweenService")
-local __init__main__exec__ = zzXx_9876543210_xXzz.LocalPlayer
+--// ========================== CONFIG ==========================
+local REJOIN_INTERVAL_SECONDS = 130         -- เวลานับถอยหลังก่อนรีจอย (หน่วย: วินาที)
+local PLACE_ID_TO_REJOIN = 103754275310547  -- PlaceId ที่จะวาร์ปไป
+local ERROR_RETRY_SLEEP_TIME = 3             -- หน่วงเวลาก่อนรีลองใหม่เมื่อ Teleport fail
+--// ============================================================
 
 
-local PlaceId_SECRET_DONT_TOUCH = 103754275310547
-local ERROR_RETRY_SLEEP_TIME = 3
-local GUI_Z_INDEX_BEHAVIOR_ENUM = Enum.ZIndexBehavior.Sibling
+-- โหลด Services
+local PlayersService = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
 
-local SuperSecretGuiContainer_v2_final = Instance.new("ScreenGui")
-SuperSecretGuiContainer_v2_final.Name = "RejoinUI_" .. tostring(math.random(10000,99999))
-SuperSecretGuiContainer_v2_final.ResetOnSpawn = false
-SuperSecretGuiContainer_v2_final.ZIndexBehavior = GUI_Z_INDEX_BEHAVIOR_ENUM
-SuperSecretGuiContainer_v2_final.Parent = __init__main__exec__:WaitForChild("PlayerGui")
+local LocalPlayer = PlayersService.LocalPlayer
 
-local MainContainerFrameObjectInstance = Instance.new("Frame")
-MainContainerFrameObjectInstance.Size = UDim2.new(0, 0x118, 0, 0x78) -- ใช้ hex
-MainContainerFrameObjectInstance.Position = UDim2.new(1, -0x12C, 0, 0x14)
-MainContainerFrameObjectInstance.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-MainContainerFrameObjectInstance.BorderSizePixel = 0
-MainContainerFrameObjectInstance.Parent = SuperSecretGuiContainer_v2_final
+-- สร้าง GUI หลัก
+local Screen = Instance.new("ScreenGui")
+Screen.Name = "RejoinUI_" .. tostring(math.random(10000,99999))
+Screen.ResetOnSpawn = false
+Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Screen.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local CornerRadiusObjectThing = Instance.new("UICorner")
-CornerRadiusObjectThing.CornerRadius = UDim.new(0, 12)
-CornerRadiusObjectThing.Parent = MainContainerFrameObjectInstance
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 0x118, 0, 0x78)
+MainFrame.Position = UDim2.new(1, -0x12C, 0, 0x14)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = Screen
 
-local GradientColorSequenceThingy = Instance.new("UIGradient")
-GradientColorSequenceThingy.Color = ColorSequence.new{
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 12)
+Corner.Parent = MainFrame
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 45)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 25))
 }
-GradientColorSequenceThingy.Rotation = 45
-GradientColorSequenceThingy.Parent = MainContainerFrameObjectInstance
+Gradient.Rotation = 45
+Gradient.Parent = MainFrame
 
-local StrokeBorderThingamajig = Instance.new("UIStroke")
-StrokeBorderThingamajig.Color = Color3.fromRGB(60, 60, 70)
-StrokeBorderThingamajig.Thickness = 1
-StrokeBorderThingamajig.Transparency = 0.5
-StrokeBorderThingamajig.Parent = MainContainerFrameObjectInstance
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(60, 60, 70)
+Stroke.Thickness = 1
+Stroke.Transparency = 0.5
+Stroke.Parent = MainFrame
 
-local IconImageLabelContainer_99 = Instance.new("ImageLabel")
-IconImageLabelContainer_99.Size = UDim2.new(0, 24, 0, 24)
-IconImageLabelContainer_99.Position = UDim2.new(0, 15, 0, 15)
-IconImageLabelContainer_99.BackgroundTransparency = 1
-IconImageLabelContainer_99.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-IconImageLabelContainer_99.ImageColor3 = Color3.fromRGB(100, 200, 255)
-IconImageLabelContainer_99.Parent = MainContainerFrameObjectInstance
+local Icon = Instance.new("ImageLabel")
+Icon.Size = UDim2.new(0, 24, 0, 24)
+Icon.Position = UDim2.new(0, 15, 0, 15)
+Icon.BackgroundTransparency = 1
+Icon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+Icon.ImageColor3 = Color3.fromRGB(100, 200, 255)
+Icon.Parent = MainFrame
 
-local TitleTextLabelObjectInstance_FINAL = Instance.new("TextLabel")
-TitleTextLabelObjectInstance_FINAL.Size = UDim2.new(1, -50, 0, 25)
-TitleTextLabelObjectInstance_FINAL.Position = UDim2.new(0, 45, 0, 15)
-TitleTextLabelObjectInstance_FINAL.BackgroundTransparency = 1
-TitleTextLabelObjectInstance_FINAL.Text = "Auto Rejoin"
-TitleTextLabelObjectInstance_FINAL.Font = Enum.Font.GothamBold
-TitleTextLabelObjectInstance_FINAL.TextSize = 16
-TitleTextLabelObjectInstance_FINAL.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleTextLabelObjectInstance_FINAL.TextXAlignment = Enum.TextXAlignment.Left
-TitleTextLabelObjectInstance_FINAL.Parent = MainContainerFrameObjectInstance
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -50, 0, 25)
+Title.Position = UDim2.new(0, 45, 0, 15)
+Title.BackgroundTransparency = 1
+Title.Text = "Auto Rejoin"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
 
-local StatusDisplayLabelThing_v3 = Instance.new("TextLabel")
-StatusDisplayLabelThing_v3.Size = UDim2.new(1, -20, 0, 18)
-StatusDisplayLabelThing_v3.Position = UDim2.new(0, 10, 0, 42)
-StatusDisplayLabelThing_v3.BackgroundTransparency = 1
-StatusDisplayLabelThing_v3.Text = "Next rejoin in:"
-StatusDisplayLabelThing_v3.Font = Enum.Font.Gotham
-StatusDisplayLabelThing_v3.TextSize = 12
-StatusDisplayLabelThing_v3.TextColor3 = Color3.fromRGB(200, 200, 200)
-StatusDisplayLabelThing_v3.TextXAlignment = Enum.TextXAlignment.Center
-StatusDisplayLabelThing_v3.Parent = MainContainerFrameObjectInstance
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -20, 0, 18)
+Status.Position = UDim2.new(0, 10, 0, 42)
+Status.BackgroundTransparency = 1
+Status.Text = "Next rejoin in:"
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 12
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+Status.TextXAlignment = Enum.TextXAlignment.Center
+Status.Parent = MainFrame
 
-local TimerCountdownDisplayObject_ULTRA = Instance.new("TextLabel")
-TimerCountdownDisplayObject_ULTRA.Size = UDim2.new(1, -20, 0, 35)
-TimerCountdownDisplayObject_ULTRA.Position = UDim2.new(0, 10, 0, 60)
-TimerCountdownDisplayObject_ULTRA.BackgroundTransparency = 1
-TimerCountdownDisplayObject_ULTRA.Text = "02:00"
-TimerCountdownDisplayObject_ULTRA.Font = Enum.Font.GothamBlack
-TimerCountdownDisplayObject_ULTRA.TextSize = 28
-TimerCountdownDisplayObject_ULTRA.TextColor3 = Color3.fromRGB(100, 200, 255)
-TimerCountdownDisplayObject_ULTRA.TextXAlignment = Enum.TextXAlignment.Center
-TimerCountdownDisplayObject_ULTRA.Parent = MainContainerFrameObjectInstance
+local TimerLabel = Instance.new("TextLabel")
+TimerLabel.Size = UDim2.new(1, -20, 0, 35)
+TimerLabel.Position = UDim2.new(0, 10, 0, 60)
+TimerLabel.BackgroundTransparency = 1
+TimerLabel.Text = "02:00"
+TimerLabel.Font = Enum.Font.GothamBlack
+TimerLabel.TextSize = 28
+TimerLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+TimerLabel.TextXAlignment = Enum.TextXAlignment.Center
+TimerLabel.Parent = MainFrame
 
-local ProgressBarBackgroundContainer_X99 = Instance.new("Frame")
-ProgressBarBackgroundContainer_X99.Size = UDim2.new(1, -20, 0, 3)
-ProgressBarBackgroundContainer_X99.Position = UDim2.new(0, 10, 1, -15)
-ProgressBarBackgroundContainer_X99.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-ProgressBarBackgroundContainer_X99.BorderSizePixel = 0
-ProgressBarBackgroundContainer_X99.Parent = MainContainerFrameObjectInstance
+local ProgressBG = Instance.new("Frame")
+ProgressBG.Size = UDim2.new(1, -20, 0, 3)
+ProgressBG.Position = UDim2.new(0, 10, 1, -15)
+ProgressBG.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+ProgressBG.BorderSizePixel = 0
+ProgressBG.Parent = MainFrame
 
-local ProgressBgCornerRadius_99999 = Instance.new("UICorner")
-ProgressBgCornerRadius_99999.CornerRadius = UDim.new(0, 2)
-ProgressBgCornerRadius_99999.Parent = ProgressBarBackgroundContainer_X99
+local PBGcorner = Instance.new("UICorner")
+PBGcorner.CornerRadius = UDim.new(0, 2)
+PBGcorner.Parent = ProgressBG
 
-local ProgressFillBarContainer_MEGA = Instance.new("Frame")
-ProgressFillBarContainer_MEGA.Size = UDim2.new(1, 0, 1, 0)
-ProgressFillBarContainer_MEGA.Position = UDim2.new(0, 0, 0, 0)
-ProgressFillBarContainer_MEGA.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
-ProgressFillBarContainer_MEGA.BorderSizePixel = 0
-ProgressFillBarContainer_MEGA.Parent = ProgressBarBackgroundContainer_X99
+local ProgressFill = Instance.new("Frame")
+ProgressFill.Size = UDim2.new(1, 0, 1, 0)
+ProgressFill.Position = UDim2.new(0, 0, 0, 0)
+ProgressFill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+ProgressFill.BorderSizePixel = 0
+ProgressFill.Parent = ProgressBG
 
-local ProgressFillCornerRadius_EXTREME = Instance.new("UICorner")
-ProgressFillCornerRadius_EXTREME.CornerRadius = UDim.new(0, 2)
-ProgressFillCornerRadius_EXTREME.Parent = ProgressFillBarContainer_MEGA
+local PFillCorner = Instance.new("UICorner")
+PFillCorner.CornerRadius = UDim.new(0, 2)
+PFillCorner.Parent = ProgressFill
 
-local CloseButtonTextButtonInstance_Z = Instance.new("TextButton")
-CloseButtonTextButtonInstance_Z.Size = UDim2.new(0, 20, 0, 20)
-CloseButtonTextButtonInstance_Z.Position = UDim2.new(1, -25, 0, 5)
-CloseButtonTextButtonInstance_Z.BackgroundTransparency = 1
-CloseButtonTextButtonInstance_Z.Text = "×"
-CloseButtonTextButtonInstance_Z.Font = Enum.Font.GothamBold
-CloseButtonTextButtonInstance_Z.TextSize = 16
-CloseButtonTextButtonInstance_Z.TextColor3 = Color3.fromRGB(200, 200, 200)
-CloseButtonTextButtonInstance_Z.Parent = MainContainerFrameObjectInstance
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 20, 0, 20)
+CloseButton.Position = UDim2.new(1, -25, 0, 5)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "×"
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 16
+CloseButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseButton.Parent = MainFrame
 
-local function CreateTweenAnimationObjectInstance(obj_param_1, info_param_2, properties_param_3)
-    return AaAaAaAa_1122334455:Create(obj_param_1, info_param_2, properties_param_3)
+
+-- ฟังก์ชันเสริม
+local function Tween(obj, info, props)
+    return TweenService:Create(obj, info, props)
 end
 
-local slideInAnimationTween_999 = CreateTweenAnimationObjectInstance(MainContainerFrameObjectInstance, 
-    TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
-    {Position = UDim2.new(1, -300, 0, 20)})
-slideInAnimationTween_999:Play()
-
-local function FormatTimeSecondsToMinutesSeconds_FUNC(sec_input_param)
-    local minutes_var = math.floor(sec_input_param / 60)
-    local seconds_var = sec_input_param % 60
-    return string.format("%02d:%02d", minutes_var, seconds_var)
+local function formatTime(sec)
+    local m = math.floor(sec / 60)
+    local s = sec % 60
+    return string.format("%02d:%02d", m, s)
 end
 
-local function UpdateProgressBarFillAmount_FUNCTION(current_val, total_val)
-    local progress_ratio_calc = current_val / total_val
-    CreateTweenAnimationObjectInstance(ProgressFillBarContainer_MEGA, 
-        TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
-        {Size = UDim2.new(progress_ratio_calc, 0, 1, 0)}):Play()
+local function updateProgress(current, total)
+    Tween(ProgressFill, TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+        {Size = UDim2.new(current/total, 0, 1, 0)}):Play()
 end
 
-local function UpdateTimerColorBasedOnTime_FUNC(remaining_time, total_time)
-    local time_ratio_calculation = remaining_time / total_time
-    local color_rgb_values
-    
-    if time_ratio_calculation > 0.5 then
-        color_rgb_values = Color3.fromRGB(100, 200, 255) 
-    elseif time_ratio_calculation > 0.25 then
-        color_rgb_values = Color3.fromRGB(255, 200, 100) 
-    else
-        color_rgb_values = Color3.fromRGB(255, 100, 100) 
-    end
-    
-    CreateTweenAnimationObjectInstance(TimerCountdownDisplayObject_ULTRA, 
-        TweenInfo.new(0.3, Enum.EasingStyle.Quad), 
-        {TextColor3 = color_rgb_values}):Play()
+local function updateColor(remaining, total)
+    local ratio = remaining/total
+    local col = Color3.fromRGB(100,200,255)
+    if ratio <= 0.25 then col = Color3.fromRGB(255,100,100)
+    elseif ratio <= 0.5 then col = Color3.fromRGB(255,200,100) end
+    Tween(TimerLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {TextColor3 = col}):Play()
 end
 
-local function SetStatusTextAndColor_FUNCTION(text_param, color_param)
-    StatusDisplayLabelThing_v3.Text = text_param
-    StatusDisplayLabelThing_v3.TextColor3 = color_param or Color3.fromRGB(200, 200, 200)
+local function setStatus(txt, col)
+    Status.Text = txt
+    Status.TextColor3 = col or Color3.fromRGB(200, 200, 200)
 end
 
-local function AttemptTeleportToTargetPlace_FUNC()
-    SetStatusTextAndColor_FUNCTION("Teleporting...", Color3.fromRGB(100, 255, 100))
-    TimerCountdownDisplayObject_ULTRA.Text = "00:00"
-    
-    task.spawn(function()
-        for loading_counter = 1, 3 do
-            TimerCountdownDisplayObject_ULTRA.Text = "Teleporting" .. string.rep(".", loading_counter)
-            task.wait(0.3)
-        end
+local function attemptTeleport()
+    setStatus("Teleporting...", Color3.fromRGB(100, 255, 100))
+    TimerLabel.Text = "00:00"
+
+    local ok, err = pcall(function()
+        TeleportService:Teleport(PLACE_ID_TO_REJOIN, LocalPlayer)
     end)
-    
-    local teleport_success_bool, teleport_error_msg = pcall(function()
-        qWeRtYuIoP_0987654321:Teleport(PlaceId_SECRET_DONT_TOUCH, __init__main__exec__)
-    end)
-    
-    if not teleport_success_bool then
-        warn("Teleport failed:", teleport_error_msg)
-        SetStatusTextAndColor_FUNCTION("Teleport failed! Retrying...", Color3.fromRGB(255, 100, 100))
-        TimerCountdownDisplayObject_ULTRA.Text = "ERROR"
-        TimerCountdownDisplayObject_ULTRA.TextColor3 = Color3.fromRGB(255, 100, 100)
-        
-        local shake_anim_tween_1 = CreateTweenAnimationObjectInstance(MainContainerFrameObjectInstance, 
-            TweenInfo.new(0.1, Enum.EasingStyle.Linear), 
-            {Position = UDim2.new(1, -305, 0, 20)})
-        shake_anim_tween_1:Play()
-        shake_anim_tween_1.Completed:Connect(function()
-            CreateTweenAnimationObjectInstance(MainContainerFrameObjectInstance, 
-                TweenInfo.new(0.1, Enum.EasingStyle.Linear), 
-                {Position = UDim2.new(1, -295, 0, 20)}):Play()
-            task.wait(0.1)
-            CreateTweenAnimationObjectInstance(MainContainerFrameObjectInstance, 
-                TweenInfo.new(0.1, Enum.EasingStyle.Linear), 
-                {Position = UDim2.new(1, -300, 0, 20)}):Play()
-        end)
-        
+    if not ok then
+        warn("Teleport failed:", err)
+        setStatus("Teleport failed! Retrying...", Color3.fromRGB(255, 100, 100))
+        TimerLabel.Text = "ERROR"
+        TimerLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
         task.wait(ERROR_RETRY_SLEEP_TIME)
         return false
     end
     return true
 end
 
-CloseButtonTextButtonInstance_Z.Activated:Connect(function()
-    local fadeOutAnimationTween_XXX = CreateTweenAnimationObjectInstance(MainContainerFrameObjectInstance, 
-        TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
-        {Position = UDim2.new(1, -100, 0, 20), BackgroundTransparency = 1})
-    fadeOutAnimationTween_XXX:Play()
-    fadeOutAnimationTween_XXX.Completed:Connect(function()
-        SuperSecretGuiContainer_v2_final:Destroy()
-    end)
+
+-- ปุ่มปิด GUI
+CloseButton.Activated:Connect(function()
+    Tween(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+        {Position = UDim2.new(1, -100, 0, 20), BackgroundTransparency = 1}):Play()
+    task.wait(0.3)
+    Screen:Destroy()
 end)
 
+
+-- ลูปนับเวลา + รีจอย
 task.spawn(function()
-    while SuperSecretGuiContainer_v2_final.Parent do
-        local remaining_time_counter = TIME_LOOP_COUNTER_MAX
-        SetStatusTextAndColor_FUNCTION("Next rejoin in:", Color3.fromRGB(200, 200, 200))
-        
-        while remaining_time_counter > 0 and SuperSecretGuiContainer_v2_final.Parent do
-            TimerCountdownDisplayObject_ULTRA.Text = FormatTimeSecondsToMinutesSeconds_FUNC(remaining_time_counter)
-            UpdateProgressBarFillAmount_FUNCTION(TIME_LOOP_COUNTER_MAX - remaining_time_counter, TIME_LOOP_COUNTER_MAX)
-            UpdateTimerColorBasedOnTime_FUNC(remaining_time_counter, TIME_LOOP_COUNTER_MAX)
-            
+    while Screen.Parent do
+        local t = REJOIN_INTERVAL_SECONDS
+        setStatus("Next rejoin in:")
+
+        while t > 0 and Screen.Parent do
+            TimerLabel.Text = formatTime(t)
+            updateProgress(REJOIN_INTERVAL_SECONDS - t, REJOIN_INTERVAL_SECONDS)
+            updateColor(t, REJOIN_INTERVAL_SECONDS)
             task.wait(1)
-            remaining_time_counter = remaining_time_counter - 1
+            t -= 1
         end
-        
-        if SuperSecretGuiContainer_v2_final.Parent then
-            local teleport_attempt_result = AttemptTeleportToTargetPlace_FUNC()
-            if not teleport_attempt_result then
-                UpdateProgressBarFillAmount_FUNCTION(0, TIME_LOOP_COUNTER_MAX)
+
+        if Screen.Parent then
+            if not attemptTeleport() then
+                updateProgress(0, REJOIN_INTERVAL_SECONDS)
             else
                 break
             end
