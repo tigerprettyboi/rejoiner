@@ -1,3 +1,8 @@
+-- Rejoin Script with External Configuration Support
+-- Usage: 
+-- local TIME_LOOP_COUNTER_MAX = 130
+-- loadstring(game:HttpGet("https://raw.githubusercontent.com/tigerprettyboi/rejoiner/refs/heads/main/opensrc"))()
+
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +13,7 @@ local player = Players.LocalPlayer
 -- รับค่า config จากตัวแปร global หรือใช้ค่า default
 local Config = {
     -- เวลารอก่อน rejoin (วินาที)
-    waitTime = getgenv().TIME or _G.TIME or 120,
+    waitTime = getgenv().TIME_LOOP_COUNTER_MAX or _G.TIME_LOOP_COUNTER_MAX or 120,
     
     -- Place ID (ถ้าไม่กำหนดจะใช้ place ปัจจุบัน)
     placeId = getgenv().PLACE_ID or _G.PLACE_ID or game.PlaceId,
