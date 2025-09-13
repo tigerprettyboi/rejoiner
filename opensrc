@@ -103,7 +103,7 @@ local timerLabel = Instance.new("TextLabel")
 timerLabel.Size = UDim2.new(1, -20, 0, 35)
 timerLabel.Position = UDim2.new(0, 10, 0, 60)
 timerLabel.BackgroundTransparency = 1
-timerLabel.Text = formatTime(WAIT_TIME)
+timerLabel.Text = "03:00"  -- ค่าเริ่มต้นชั่วคราว
 timerLabel.Font = Enum.Font.GothamBlack
 timerLabel.TextSize = 28
 timerLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -245,12 +245,14 @@ end)
 
 -- Main countdown loop
 task.spawn(function()
+    -- อัปเดต timer เริ่มต้นด้วย WAIT_TIME ที่ถูกต้อง
+    timerLabel.Text = formatTime(WAIT_TIME)
+    updateTimerColor(WAIT_TIME, WAIT_TIME)
+    updateProgress(0, WAIT_TIME)
+    
     while gui.Parent do
         local remaining = WAIT_TIME
         setStatus("Next rejoin in:", Color3.fromRGB(200, 200, 200))
-        timerLabel.Text = formatTime(remaining)
-        updateTimerColor(remaining, WAIT_TIME)
-        updateProgress(0, WAIT_TIME)
         
         while remaining > 0 and gui.Parent do
             timerLabel.Text = formatTime(remaining)
